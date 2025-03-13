@@ -1,3 +1,9 @@
+---
+title: "Parallel Computing Practical"
+author: "Christopher Eason ESNCHR001"
+format: "pdf"
+---
+
 ## **Question 1**
 
 Use a `foreach` loop to repeat 100 times:
@@ -8,7 +14,7 @@ Use a `foreach` loop to repeat 100 times:
 
 -   *row-bind* your results (`rbind`) (results = mean and variance).
 
-```{r}
+```{r, warning=FALSE}
 library(doParallel)
 
 cores <- detectCores() - 1  # Use available cores minus 1
@@ -28,7 +34,7 @@ system.time({
   }
 })
 
-results
+head(results)
 ```
 
 \newpage
@@ -68,9 +74,12 @@ for(j in seq(1, 1000, by = 100) ){
     })["elapsed"]
   i <- i+1
 }
-plot(x=seq(1, 1000, by = 100), y =elapsed_time, main = "Elapsed Time as we change the number 
+plot(x=seq(1, 1000, by = 100), y =elapsed_time, 
+main = "Elapsed Time as we change the number 
 of simulations or tasks available to complete
-fixing the amount of work each worker has to do", xlab = "The number of tasks to complete", ylab = "Elapsed Time", type = "b")
+fixing the amount of work each worker has to do", 
+     xlab = "The number of tasks to complete", 
+     ylab = "Elapsed Time", type = "b")
 ```
 
 **Interpretation:** As we increase the number of tasks, the elapsed time increases i.e. runs slower. This means that the overhead costs of the parallelized code become more significant as the number of tasks grows
@@ -85,9 +94,12 @@ for(j in seq(1, 1000, by = 100) ){
     })["elapsed"]
   i <- i+1
 }
-plot(x=seq(1, 1000, by = 100), y =elapsed_time, main = "Elapsed Time as we change the size of
+plot(x=seq(1, 1000, by = 100), y =elapsed_time, 
+main = "Elapsed Time as we change the size of
 each task to be completed for each worker
-fixing the number of tasks", xlab = "The size of each bootstrap", ylab = "Elapsed Time", type = "b")
+fixing the number of tasks", 
+xlab = "The size of each bootstrap", 
+ylab = "Elapsed Time", type = "b")
 ```
 
 **Interpretation:** As we increase the size of the tasks for each set of of workers, we see an initial decrease in elapsed time, however it increases later on due to overhead costs.
@@ -98,7 +110,7 @@ fixing the number of tasks", xlab = "The size of each bootstrap", ylab = "Elapse
 
 Estimate coverage of a percentile bootstrap confidence interval for the following scenario: sample of size 50 from an exponential distribution with mean 1.
 
-```{r}
+```{r,warning=FALSE}
 library(doParallel)
 
 cores <- detectCores() - 1  # Use available cores minus 1
@@ -110,7 +122,7 @@ set.seed(123)
 bootstrap_coverage <- function(B,N){
    true_mean <- 1 # for exponential distribution true mean is lamda / rate
   
-  count <- foreach(i = 1:N, .combine="+") %dopar% {
+  suppressWarnings(count <- foreach(i = 1:N, .combine="+") %dopar% {
     dat <- rexp(50, rate = 1)
     
     bootstrap_means <- replicate(B, mean(sample(dat,size=length(dat),replace = TRUE)))
@@ -119,14 +131,15 @@ bootstrap_coverage <- function(B,N){
     lower_ci <- as.numeric(quantile(bootstrap_means, 0.025))
     
     ifelse(true_mean > lower_ci & true_mean < upper_ci, 1, 0)
-  }
+  })
   coverage <- count/N
   return(coverage)
 }
 
 B <- 50 # Number of bootstraps be task
 N <- 10000 # Number of simulations
-system.time(print(bootstrap_coverage( B, N))) # Coverage Probability (should be close to the 95%, our confidence interval )
+suppressWarnings(system.time(print(bootstrap_coverage( B, N)))) 
+# Coverage Probability (should be close to the 95%, our confidence interval )
 ```
 
 \newpage
@@ -149,12 +162,12 @@ registerDoParallel(cl)
 
 
 # Use foreach to find the maximum in each vector
-system.time(
+suppressWarnings(system.time(
 max_values <- foreach(i = 1:3, .combine = c) %dopar% {
   library(iterators)
   it <- irnorm(1, count=5)
   max(nextElem(it))  # Find max value in each vector
-})
+}))
 print(matrix(max_values))
 ```
 
@@ -221,16 +234,20 @@ df2 <- data.frame(x=x, y=parLapply_time, Group = "parLapply")
 df3 <- data.frame(x=x, y=replicate_time, Group = "replicate")
 combined_df <- rbind(df1, df2, df3)
 
+library(ggplot2)
 ggplot(data = combined_df, aes(x = x, y = y, color = Group)) +
   geom_line() +
   labs(
-    title = "Elapsed Times for foreach, parLapply, and replicate\nas the number of tasks increases",
+    title = "Elapsed Times for foreach, parLapply, and replicate
+as the number of tasks increases",
     subtitle = "Using irnorm vectors", 
     x = "Number of tasks",
     y = "Elapsed Time",
     color = "Method"
   ) +
-  scale_color_manual(values = c("foreach" = "Red", "parLapply" = "Blue", "replicate" = "Green"))
+  scale_color_manual(
+    values = c("foreach" = "Red", "parLapply" = "Blue", "replicate" = "Green")
+    )
 ```
 
 **Interpretation:** The foreach function is slower than both parLapply and replicate due to high parallelization overhead. While replicate is faster initially for small tasks, parLapply outperforms it as the number of tasks increases, thanks to better scalability and efficient workload distribution across cores. For large tasks, parLapply is the best choice, while replicate is more suitable for smaller, serial operations.
