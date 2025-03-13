@@ -49,26 +49,48 @@ cores <- detectCores() - 1  # Use available cores minus 1
 cl <- makeCluster(cores)
 registerDoParallel(cl)
 
-bootstrap_median <- function(dat, B){
-  medians <- foreach(i = 1:B, .packages = 'MASS', .combine = c) %dopar%   {
-    bootstrap <- sample(dat, size = length(dat), replace=TRUE)
+bootstrap_median <- function(dat, N, B){
+  medians <- foreach(i = 1:N, .packages = 'MASS', .combine = c) %dopar%   {
+    bootstrap <- sample(B, size = length(dat), replace=TRUE)
     median(bootstrap)
   }
   return(medians)
 }
-
-system.time({
-  bootstrap_median(galaxies, 1)
-})
-
-system.time({
-  bootstrap_median(galaxies, 100)
-})
-
-system.time({
-  bootstrap_median(galaxies, 10000)
-})
 ```
+
+```{r}
+# Testing how the number of tasks affects run time
+elapsed_time <- c()
+i <- 1
+for(j in seq(1, 1000, by = 100) ){
+  elapsed_time[i] <- system.time({
+    bootstrap_median(galaxies, j, length(galaxies))
+    })["elapsed"]
+  i <- i+1
+}
+plot(x=seq(1, 1000, by = 100), y =elapsed_time, main = "Elapsed Time as we change the number 
+of simulations or tasks available to complete
+fixing the amount of work each worker has to do", xlab = "The number of tasks to complete", ylab = "Elapsed Time", type = "b")
+```
+
+**Interpretation:** As we increase the number of tasks, the elapsed time increases i.e. runs slower. This means that the overhead costs of the parallelized code become more significant as the number of tasks grows
+
+```{r}
+# Testing how the size of each tasks affects run time
+elapsed_time <- c()
+i <- 1
+for(j in seq(1, 1000, by = 100) ){
+  elapsed_time[i] <- system.time({
+    bootstrap_median(galaxies, 10, j)
+    })["elapsed"]
+  i <- i+1
+}
+plot(x=seq(1, 1000, by = 100), y =elapsed_time, main = "Elapsed Time as we change the size of
+each task to be completed for each worker
+fixing the number of tasks", xlab = "The size of each bootstrap", ylab = "Elapsed Time", type = "b")
+```
+
+**Interpretation:** As we increase the size of the tasks for each set of of workers, we see an initial decrease in elapsed time, however it increases later on due to overhead costs.
 
 \newpage
 
@@ -133,7 +155,7 @@ max_values <- foreach(i = 1:3, .combine = c) %dopar% {
   it <- irnorm(1, count=5)
   max(nextElem(it))  # Find max value in each vector
 })
-print(max_values)
+print(matrix(max_values))
 ```
 
 \newpage
@@ -158,7 +180,6 @@ parallel_apply <-  function(i) {
   max(nextElem(it))
 }
 
-
 # Use foreach to find the maximum in each vector
 foreach_func <- function(n){
   max_values <- foreach(i = 1:n, .combine = c) %dopar% {
@@ -179,33 +200,37 @@ replicate_func <- function (n){
 ```
 
 ```{r}
-print("10 iterations")
-n <- 10
-system.time(foreach_func(n))
-system.time(parLapply_func(n))
-system.time(replicate_func(n))
+# Testing how the number tasks affects run time for each function
+foreach_time <- c()
+parLapply_time <- c()
+replicate_time <- c()
+
+set.seed(1234)
+
+x <- seq(1, 1000, by = 100)
+i <- 1
+for(n in x){
+  foreach_time[i] <- system.time(foreach_func(n))["elapsed"]
+  parLapply_time[i] <- system.time(parLapply_func(n))["elapsed"]
+  replicate_time[i] <- system.time(replicate_func(n))["elapsed"]
+  i <- i+1
+}
+
+df1 <- data.frame(x=x, y=foreach_time, Group = "foreach")
+df2 <- data.frame(x=x, y=parLapply_time, Group = "parLapply")
+df3 <- data.frame(x=x, y=replicate_time, Group = "replicate")
+combined_df <- rbind(df1, df2, df3)
+
+ggplot(data = combined_df, aes(x = x, y = y, color = Group)) +
+  geom_line() +
+  labs(
+    title = "Elapsed Times for foreach, parLapply, and replicate\nas the number of tasks increases",
+    subtitle = "Using irnorm vectors", 
+    x = "Number of tasks",
+    y = "Elapsed Time",
+    color = "Method"
+  ) +
+  scale_color_manual(values = c("foreach" = "Red", "parLapply" = "Blue", "replicate" = "Green"))
 ```
 
-```{r}
-print("100 iterations")
-n <- 100
-system.time(foreach_func(n))
-system.time(parLapply_func(n))
-system.time(replicate_func(n))
-```
-
-```{r}
-print("1000 iterations")
-n <- 1000
-system.time(foreach_func(n))
-system.time(parLapply_func(n))
-system.time(replicate_func(n))
-```
-
-```{r}
-print("10000 iterations")
-n <- 100000
-system.time(foreach_func(n))
-system.time(parLapply_func(n))
-system.time(replicate_func(n))
-```
+**Interpretation:** The foreach function is slower than both parLapply and replicate due to high parallelization overhead. While replicate is faster initially for small tasks, parLapply outperforms it as the number of tasks increases, thanks to better scalability and efficient workload distribution across cores. For large tasks, parLapply is the best choice, while replicate is more suitable for smaller, serial operations.
