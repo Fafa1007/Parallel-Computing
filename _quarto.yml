@@ -1,5 +1,24 @@
 project:
-  title: "Assignment 3"
-
-editor: visual
-
+  type: book
+  render:
+  - index.qmd
+  output-dir: docs
+  
+book:
+  title: Parallel Computing
+  sidebar:
+    border: true
+    background: light
+    position: right
+  navbar:
+    search: true
+    background: light
+  chapters:
+  - index.qmd
+  
+format:
+  html:
+    theme: black
+    toc: true
+    toc-depth: 3
+    toc-location: left
