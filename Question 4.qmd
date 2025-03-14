@@ -1,0 +1,31 @@
+---
+title: "Question 4"
+format: html
+---
+
+## **Question 4**
+
+The package `iterators` provides several functions that can be used to create sequences for the `foreach` function. For example, the `irnorm` function creates an object that iterates over vectors of normally distributed random numbers. It is useful when you need to use random variables drawn from one distribution in an expression that is run in parallel.
+
+In this exercise, use the `foreach` and `irnorm` functions to iterate over 3 vectors, each containing 5 random variables. Find the largest value in each vector, and print those largest values.
+
+Before running the `foreach` function set the seed to 1234.
+
+```{r}
+library(doParallel)
+set.seed(1234)
+
+cores <- detectCores() - 1  # Use available cores minus 1
+cl <- makeCluster(cores)
+registerDoParallel(cl)
+
+
+# Use foreach to find the maximum in each vector
+suppressWarnings(system.time(
+max_values <- foreach(i = 1:3, .combine = c) %dopar% {
+  library(iterators)
+  it <- irnorm(1, count=5)
+  max(nextElem(it))  # Find max value in each vector
+}))
+print(matrix(max_values))
+```

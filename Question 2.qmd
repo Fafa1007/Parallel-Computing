@@ -1,0 +1,68 @@
+---
+title: "Question 2"
+format: html
+---
+## **Question 2**
+
+Use the `doParallel` package and `foreach` to bootstrap the median for the galaxies data (in library MASS).
+
+If the `foreach` function needs access to data or a function from a certain package, this can be done by adding the `.packages='MASS'` (for example) argument.
+
+How does processing time compare to that of serial processing? If each iteration’s run time is small, relative to the amount of data that needs to be loaded and returned, parallel processing might not actually speed up the total run time. Bootstrapping is relatively small: draw a sample, calculate a statistic. It might only start making a difference if each chunk becomes large relatively to the overheads of data transfer. Experiment with this. Try doing 1000 bootstrap samples at a time instead of managing single bootstrap samples.
+
+```{r}
+library(doParallel)
+library(MASS)
+
+cores <- detectCores() - 1  # Use available cores minus 1
+cl <- makeCluster(cores)
+registerDoParallel(cl)
+
+bootstrap_median <- function(dat, N, B){
+  medians <- foreach(i = 1:N, .packages = 'MASS', .combine = c) %dopar%   {
+    bootstrap <- sample(B, size = length(dat), replace=TRUE)
+    median(bootstrap)
+  }
+  return(medians)
+}
+```
+
+```{r}
+# Testing how the number of tasks affects run time
+elapsed_time <- c()
+i <- 1
+for(j in seq(1, 1000, by = 100) ){
+  elapsed_time[i] <- system.time({
+    bootstrap_median(galaxies, j, length(galaxies))
+    })["elapsed"]
+  i <- i+1
+}
+plot(x=seq(1, 1000, by = 100), y =elapsed_time, 
+main = "Elapsed Time as we change the number 
+of simulations or tasks available to complete
+fixing the amount of work each worker has to do", 
+     xlab = "The number of tasks to complete", 
+     ylab = "Elapsed Time", type = "b")
+```
+
+**Interpretation:** As we increase the number of tasks, the elapsed time increases i.e. runs slower. This means that the overhead costs of the parallelized code become more significant as the number of tasks grows
+
+```{r}
+# Testing how the size of each tasks affects run time
+elapsed_time <- c()
+i <- 1
+for(j in seq(1, 1000, by = 100) ){
+  elapsed_time[i] <- system.time({
+    bootstrap_median(galaxies, 10, j)
+    })["elapsed"]
+  i <- i+1
+}
+plot(x=seq(1, 1000, by = 100), y =elapsed_time, 
+main = "Elapsed Time as we change the size of
+each task to be completed for each worker
+fixing the number of tasks", 
+xlab = "The size of each bootstrap", 
+ylab = "Elapsed Time", type = "b")
+```
+
+**Interpretation:** As we increase the size of the tasks for each set of of workers, we see an initial decrease in elapsed time, however it increases later on due to overhead costs.

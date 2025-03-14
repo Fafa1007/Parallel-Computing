@@ -1,0 +1,83 @@
+---
+title: "Question 5"
+format: html
+---
+
+## **Question 5**
+
+Compare run time between `parLapply`, `foreach` and `replicate` for the above problem.
+
+```{r}
+library(iterators)
+library(doParallel)
+set.seed(1234)
+
+cores <- detectCores() - 1  # Use available cores minus 1
+cl <- makeCluster(cores)
+registerDoParallel(cl)
+
+# Parallel Function
+parallel_apply <-  function(i) {
+  library(iterators)
+  it <- irnorm(1, count=5)
+  max(nextElem(it))
+}
+
+# Use foreach to find the maximum in each vector
+foreach_func <- function(n){
+  max_values <- foreach(i = 1:n, .combine = c) %dopar% {
+  library(iterators)
+  it <- irnorm(1, count=5)
+  max(nextElem(it))
+}}
+
+# Use parLapply to find the maximum in each vector
+parLapply_func <- function(n){
+  max_values <- parLapply(cl, 1:n, parallel_apply)
+}
+
+# Use replicate to find the maximum in each vector
+replicate_func <- function (n){
+  max_values <- replicate(n,parallel_apply(i=n))
+}
+```
+
+```{r}
+# Testing how the number tasks affects run time for each function
+foreach_time <- c()
+parLapply_time <- c()
+replicate_time <- c()
+
+set.seed(1234)
+
+x <- seq(1, 1000, by = 100)
+i <- 1
+for(n in x){
+  foreach_time[i] <- system.time(foreach_func(n))["elapsed"]
+  parLapply_time[i] <- system.time(parLapply_func(n))["elapsed"]
+  replicate_time[i] <- system.time(replicate_func(n))["elapsed"]
+  i <- i+1
+}
+
+df1 <- data.frame(x=x, y=foreach_time, Group = "foreach")
+df2 <- data.frame(x=x, y=parLapply_time, Group = "parLapply")
+df3 <- data.frame(x=x, y=replicate_time, Group = "replicate")
+combined_df <- rbind(df1, df2, df3)
+
+library(ggplot2)
+ggplot(data = combined_df, aes(x = x, y = y, color = Group)) +
+  geom_line() +
+  labs(
+    title = "Elapsed Times for foreach, parLapply, and replicate
+as the number of tasks increases",
+    subtitle = "Using irnorm vectors", 
+    x = "Number of tasks",
+    y = "Elapsed Time",
+    color = "Method"
+  ) +
+  scale_color_manual(
+    values = c("foreach" = "Red", "parLapply" = "Blue", "replicate" = "Green")
+    )
+```
+
+**Interpretation:** The foreach function is slower than both parLapply and replicate due to high parallelization overhead. While replicate is faster initially for small tasks, parLapply outperforms it as the number of tasks increases, thanks to better scalability and efficient workload distribution across cores. For large tasks, parLapply is the best choice, while replicate is more suitable for smaller, serial operations.

@@ -1,0 +1,37 @@
+---
+title: "Question 1"
+format: html
+---
+
+## **Question 1**
+
+Use a `foreach` loop to repeat 100 times:
+
+-   generate a random sample from an exponential distribution with mean 1
+
+-   calculate mean and variance
+
+-   *row-bind* your results (`rbind`) (results = mean and variance).
+
+```{r, warning=FALSE}
+library(doParallel)
+
+cores <- detectCores() - 1  # Use available cores minus 1
+cl <- makeCluster(cores)
+registerDoParallel(cl)
+
+
+result <- matrix(nrow=0, ncol = 2)
+
+# Put "combine = rbind"
+system.time({
+  results <- foreach(i= 1:100,.combine = rbind) %dopar% {
+    y <- rexp(100, rate = 1)
+    x_bar <- mean(y)
+    s_square <- var(y)
+    cbind(x_bar, s_square)
+  }
+})
+
+head(results)
+```
